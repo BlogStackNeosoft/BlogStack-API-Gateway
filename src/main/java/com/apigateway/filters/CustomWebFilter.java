@@ -1,6 +1,7 @@
 package com.apigateway.filters;
 
 import com.apigateway.commons.BlogStackApiGatewayCommons;
+import com.apigateway.commons.BlogStackUserManagementServiceBaseEndpoints;
 import com.apigateway.exceptions.BlogStackApiGatewayCustomException;
 import com.apigateway.helpers.RoleControllerMappingHelper;
 import com.apigateway.utils.JwtUtils;
@@ -34,13 +35,22 @@ public class CustomWebFilter implements WebFilter {
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         String uri = exchange.getRequest().getURI().getPath();
 
+        if(uri.contains(BlogStackUserManagementServiceBaseEndpoints.AUTHENTICATION_CONTROLLER))
+            return chain.filter(exchange);
+
         String jwtToken = exchange.getRequest()
                 .getHeaders()
                 .getFirst(HttpHeaders.AUTHORIZATION)
                 .substring(7);
 
+        log.info("Token: "+exchange.getRequest()
+                .getHeaders()
+                .getFirst(HttpHeaders.AUTHORIZATION));
+
         Claims claims = this.jwtUtils.parsClaims(jwtToken);
         List<String> tokenEncryptedRoles = (List) claims.get(BlogStackApiGatewayCommons.API_GATEWAY_COMMONS.CLAIM_EXTRACTION_KEY);
+
+        log.info("Roles encrypted in token: {}",tokenEncryptedRoles);
 
         Map<String, Set<String>> blogStackAllRoleToControllerMapping =  RoleControllerMappingHelper.getBlogStackAllRoleToControllerMapping();
         int count = 0;
@@ -60,6 +70,7 @@ public class CustomWebFilter implements WebFilter {
                         {
                             /*log.info("The control has reached till the inner code of incrementing the counter");*/
                             count++;
+                            log.info("Inside count increment");
                             break BLOGSTACK_OUTER_WHILE_LOOP;
                         }
                     }
@@ -69,7 +80,7 @@ public class CustomWebFilter implements WebFilter {
 
         if(count == 0){
             log.info("unauthorized exception");
-            throw new BlogStackApiGatewayCustomException(HttpStatusCode.valueOf(401),new ResponseStatusException(HttpStatusCode.valueOf(401),"The user is not authorized to access the resource").getReason());
+            throw new BlogStackApiGatewayCustomException("The user is not authorized to access the resource");
         }
 
 
